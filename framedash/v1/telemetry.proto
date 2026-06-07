@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package framedash.v1;
+
+// 3D position vector for spatial analytics (heatmaps, player tracking).
+message Vector3 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+// Source of the telemetry event.
+enum TelemetrySource {
+  TELEMETRY_SOURCE_UNSPECIFIED = 0;
+  TELEMETRY_SOURCE_PLAYER = 1;
+  TELEMETRY_SOURCE_AUTOMATED = 2;
+}
+
+// Core telemetry event emitted by game SDKs.
+// Each event maps to a single row in the ClickHouse `framedash.events` table.
+message GameTelemetryEvent {
+  string event_name = 1;
+  // Unix epoch in microseconds. Stored as DateTime64(6) in ClickHouse.
+  int64 timestamp_us = 2;
+  string session_id = 3;
+  // Explicit player identifier — the only PII the SDK may collect.
+  string player_id = 4;
+  Vector3 position = 5;
+  string map_id = 6;
+  reserved 7;
+  reserved "zone_id";
+  float fps = 8;
+  float frame_time_ms = 9;
+  int64 memory_used_bytes = 10;
+  float gpu_time_ms = 11;
+  // Free-form string key-value pairs for game-specific context.
+  map<string, string> attributes = 12;
+  // Free-form numeric metrics for game-specific measurements.
+  map<string, double> metrics = 13;
+  // Source of the telemetry event.
+  TelemetrySource source = 14;
+  string build_id = 15;
+  string platform = 16;
+  string engine_version = 17;
+  // Camera orientation in degrees.
+  // camera_yaw: horizontal rotation (0 = North, clockwise, [0, 360)).
+  // camera_pitch: vertical rotation (-90 = straight down, +90 = straight up).
+  // 'optional' enables has-field presence tracking — distinguishes
+  // "not sent by SDK" (absent) from "facing North at level" (0, 0).
+  optional float camera_yaw = 18;
+  optional float camera_pitch = 19;
+  // CPU game thread time in milliseconds (logic, AI, physics).
+  // 0 = not collected (old SDK or unavailable).
+  float game_thread_ms = 20;
+  // CPU render thread time in milliseconds (draw commands, culling).
+  // 0 = not collected (old SDK or unavailable).
+  float render_thread_ms = 21;
+}
+
+// Batch wrapper sent by SDKs via POST /v1/events.
+// api_key and sdk_version are transmitted in HTTP headers (X-API-Key, X-SDK-Version),
+// not in the Protobuf payload.
+message TelemetryBatch {
+  repeated GameTelemetryEvent events = 1;
+}
